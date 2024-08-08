@@ -1,38 +1,57 @@
+import json
+import time
+
 from functions import *
-# from selenium.webdriver.chrome.options import Options  # => 引入Chrome的配置
-from selenium.webdriver import ChromeOptions
+from selenium.webdriver.chrome.options import Options  # => 引入Chrome的配置
+# from selenium.webdriver import ChromeOptions
 from selenium import webdriver
 import os
+from selenium.webdriver.chrome.service import Service
 
 
 def Chrome_Config(Chrome_path):
-    options = ChromeOptions()
+    service = Service(executable_path=Chrome_path)
+    options = Options()
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
     # options.add_argument("--headless")  # => 为Chrome配置无头模式
     # options.add_argument("--headless")
 
-    driver = webdriver.Chrome(Chrome_path, options=options)
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 
-if __name__ == '__main__':
+def filter_cookie(cookie):
+    cookie_dict = {
+        'name': cookie['name'],
+        'value': cookie['value'],
+        'domain': cookie['domain'],
+        'path': cookie['path'],
+        'secure': cookie['secure'],
+        'httpOnly': cookie['httpOnly'],
+        'expiry': int(cookie['expirationDate']),
+        'sameSite': "None" if cookie.get("sameSite") not in ["Strict", "Lax", "None"] else cookie["sameSite"]
+    }
+    return cookie_dict
 
-    Chrome_path = "F:\Code//2022\chromedriver_win32\chromedriver.exe"  # Enter your chrome driver path here
-    driver = Chrome_Config(Chrome_path)  # In this function, you can config your chrome driver
-    print('------------------------------------------------------------------------')
-    # --------------------------------------------------------------------------------
-    # parameters
-    Keyword_Path = 'keyword.csv'
-    Stop_num = 10  # this is the number of the items you want to crawl
-    kw_start_point = 0  # this parameter decides the start keyword of the crawler.its default value is 0
-    save_path = 'data'  # this is the path where you want to save the crawled data
-    start_date = '2022-04-29'  # this parameter decides the start date of the crawler.its default value is 2021-01-01
-    end_date = '2020-01-01'  # this parameter decides the end date of the crawler.its default value is 2020-01-01
-    limit_language = 'all'  # this parameter decides the language of the crawler.its default value is en
-    # ----------------------------------------------------------------------------------
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-    Twitter_Crawler(driver, Keyword_Path, Stop_num, kw_start_point, save_path, start_date, end_date, limit_language)
-    print('------------------------------------------------------------------------')
-    driver.close()
+if __name__ == '__main__':
+    print("driver init...")
+    driver = Chrome_Config("chromedriver.exe")  # In this function, you can config your chrome driver
+    with open('cookies/fishcliptail.json', 'r') as cookies_file:
+        cookies = json.load(cookies_file)
+    driver.get('https://twitter.com/login')
+    time.sleep(5)
+    for cookie in cookies:
+        try:
+            cookie_dict = filter_cookie(cookie)
+            driver.add_cookie(cookie_dict)
+        except Exception as e:
+            print(cookie['name'], e)
+    print('open url...')
+    driver.get('https://x.com/home')
+    time.sleep(5)
+    if driver.find_elements_by_xpath('//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[1]/div[1]/div/nav/div/div[2]/div/div[2]/a'):
+        print("登录成功！")
+    else:
+        print("可能未成功登录")
+    driver.quit()
